@@ -74,7 +74,7 @@ typedef struct {
     VariableItem* block_slc_item; //
     VariableItem* byte_buffer_item; //
     ByteInput* byte_input; // The byte input view
-    uint8_t* bytes_buffer[4];
+    uint8_t bytes_buffer[4];
     uint8_t bytes_count;
 
     char* temp_buffer; // Temporary buffer for text input
@@ -92,7 +92,7 @@ typedef struct {
     uint8_t rf_clock_index; // The index for total number of pins
     FuriString* tag_name_str; // The name setting
     uint8_t user_block_num; // The total number of pins we are adjusting
-    uint32_t* content; // The cutting content
+    uint32_t content[LFRFID_T5577_BLOCK_COUNT]; // The cutting content
     t5577_modulation modulation;
     t5577_rf_clock rf_clock;
     bool data_loaded[3];
@@ -108,14 +108,10 @@ void initialize_config(T5577WriterModel* model) {
 }
 
 void initialize_model(T5577WriterModel* model) {
-    if(model->content != NULL) {
-        free(model->content);
-    }
     initialize_config(model);
     model->user_block_num = 1;
     model->edit_block_slc = 1;
     model->writing_repeat_times = 0;
-    model->content = (uint32_t*)malloc(LFRFID_T5577_BLOCK_COUNT * sizeof(uint32_t));
     for(uint32_t i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++) {
         model->content[i] = 0;
     }
@@ -160,6 +156,11 @@ static uint32_t t5577_writer_navigation_exit_callback(void* _context) {
 static uint32_t t5577_writer_navigation_submenu_callback(void* _context) {
     UNUSED(_context);
     return T5577WriterViewSubmenu;
+}
+
+static uint32_t t5577_writer_navigation_config_e_callback(void* _context) {
+    UNUSED(_context);
+    return T5577WriterViewConfigure_e;
 }
 
 /**
@@ -255,6 +256,10 @@ static void t5577_writer_edit_block_slc_change(VariableItem* item) {
     FuriString *buffer = furi_string_alloc();
     furi_string_printf(buffer, "%u", model->edit_block_slc);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
+
+    furi_string_printf(buffer, "%08lX", model->content[model->edit_block_slc]);
+    variable_item_set_current_value_text(app->byte_buffer_item, furi_string_get_cstr(buffer));
+
     furi_string_free(buffer);
 }
 
@@ -354,13 +359,69 @@ void t5577_writer_update_config_from_load(void* context) {
             my_model->rf_clock = all_rf_clocks[my_model->rf_clock_index];
         }
     }
-
     my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;  
-
     memset(my_model->data_loaded, true, sizeof(my_model->data_loaded)); // Everything is loaded
-
 }
 
+static const char* edit_block_data_config_label = "Block Data";
+void uint32_to_byte_buffer(uint32_t block_data, uint8_t byte_buffer[4]) {
+    byte_buffer[0] = (block_data >> 24) & 0xFF;
+    byte_buffer[1] = (block_data >> 16) & 0xFF;
+    byte_buffer[2] = (block_data >> 8) & 0xFF;
+    byte_buffer[3] = block_data & 0xFF;
+}
+
+uint32_t byte_buffer_to_uint32(const uint8_t byte_buffer[4]) {
+    return ((uint32_t)(byte_buffer[0] << 24)) ;
+}
+
+static void t5577_writer_content_byte_input_confirmed(void* context) {
+    T5577WriterApp* app = (T5577WriterApp*)context;
+    T5577WriterModel* my_model = view_get_model(app->view_write);
+    my_model->content[my_model->edit_block_slc] = byte_buffer_to_uint32(app->bytes_buffer);
+    view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewConfigure_e);
+}
+
+static void t5577_writer_content_byte_changed(void* context) {
+    UNUSED(context);
+}
+static void t5577_writer_config_item_clicked(void* context, uint32_t index) {
+    T5577WriterApp* app = (T5577WriterApp*)context;
+    T5577WriterModel* my_model = view_get_model(app->view_write);
+    FuriString *buffer = furi_string_alloc();
+    furi_string_printf(buffer, "Enter Block %u Data", my_model->edit_block_slc);
+    // Our hex input UI is the 5th in the config menue.
+    if(index == 4) {
+        // Header to display on the text input screen.
+        byte_input_set_header_text(app->byte_input, furi_string_get_cstr(buffer));
+
+        // Copy the current name into the temporary buffer.
+        bool redraw = false;
+        with_view_model(
+            app->view_write,
+            T5577WriterModel * model,
+            {
+                uint32_to_byte_buffer(model->content[model->edit_block_slc],app->bytes_buffer);
+            },
+            redraw);
+
+        // Configure the text input.  When user enters text and clicks OK, key_copier_setting_text_updated be called.
+        byte_input_set_result_callback(
+            app->byte_input,
+            t5577_writer_content_byte_input_confirmed,
+            t5577_writer_content_byte_changed,
+            app,
+            app->bytes_buffer,
+            app->bytes_count
+            );
+
+        // Pressing the BACK button will reload the configure screen.
+        view_set_previous_callback(byte_input_get_view(app->byte_input), t5577_writer_navigation_config_e_callback);
+
+        // Show text input dialog.
+        view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewByteInput);
+    }
+}
 static void t5577_writer_config_enter_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
@@ -390,6 +451,14 @@ static void t5577_writer_config_enter_callback(void* context) {
         LFRFID_T5577_BLOCK_COUNT - 1,
         t5577_writer_edit_block_slc_change,
         app);
+    app->byte_buffer_item = variable_item_list_add(
+        app->variable_item_list_config, 
+        edit_block_data_config_label, 
+        1, 
+        NULL, 
+        app);
+    variable_item_list_set_enter_callback(app->variable_item_list_config, t5577_writer_config_item_clicked, app);
+    
     View* view_config_i = variable_item_list_get_view(app->variable_item_list_config);
 
     variable_item_set_current_value_index(app->mod_item,my_model->modulation_index);
@@ -764,15 +833,6 @@ static void t5577_writer_app_free(T5577WriterApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewAbout);
     widget_free(app->widget_about);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewWrite);
-    with_view_model(
-        app->view_write,
-        T5577WriterModel * model,
-        {
-            if(model->content != NULL) {
-                free(model->content);
-            }
-        },
-        false);
     view_free(app->view_write);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewLoad);
     view_free(app->view_load);

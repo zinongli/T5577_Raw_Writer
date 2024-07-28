@@ -1,6 +1,6 @@
 App(
     appid="t5577_writer",
-    name="T5577 Writer",
+    name="T5577 Raw Writer",
     apptype=FlipperAppType.EXTERNAL,
     entry_point="main_t5577_writer_app",
     stack_size=4 * 1024,

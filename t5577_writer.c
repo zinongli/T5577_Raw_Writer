@@ -553,14 +553,10 @@ static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
     for(size_t i = 0; i < data->blocks_to_write; i++) {
         data->block[i] = my_model->content[i];
     }
-    data->block[1] = 0x007F9FB6;
-    data->block[2] = 0xB59FD7F9;
-    data->block[3] = 0x006BDFAE;
-    data->block[4] = 0xACB83B53;
     t5577_write(data);
     free(data);
 
-    canvas_draw_line(canvas, 0, 25, 120, 50);
+    canvas_draw_str(canvas, 32, 10, "Writing...");
 }
 
 /**

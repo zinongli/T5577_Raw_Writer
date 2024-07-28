@@ -807,7 +807,7 @@ static T5577WriterApp* t5577_writer_app_alloc() {
         0,
         128,
         64,
-        "T5577 Writer v0.1");
+        "T5577 Raw Writer v0.1\n\nAuthor: @Torron\n\nGithub: https://github.com/zinongli/T5577_Raw_Writer");
     view_set_previous_callback(
         widget_get_view(app->widget_about), t5577_writer_navigation_submenu_callback);
     view_dispatcher_add_view(

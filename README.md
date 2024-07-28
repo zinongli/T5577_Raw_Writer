@@ -1,5 +1,5 @@
 # T5577 Raw Writer App
-An easy to use T5577 raw writer app for Flipper Zero. 
+An easy to use T5577 raw writer app for Flipper Zero. [Discord project page.](https://discord.com/channels/1211622338198765599/1267190551783018659)
 ## Instruction:
 
 Configure the modulation, RF Clock, and number of blocks in the `Config` menu. The edit block feature is useless right not but will be implemented to allow editing user blocks in the future. 

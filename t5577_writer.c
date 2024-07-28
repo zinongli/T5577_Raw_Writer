@@ -18,8 +18,12 @@
 #include <stdio.h>
 #include <t5577_config.h>
 #include <t5577_writer.h>
+#include <dolphin/dolphin.h>
+
+
 
 #define TAG "T5577 Writer"
+#define MAX_REPEAT_WRITING_TIMES 15
 
 // Change this to BACKLIGHT_AUTO if you don't want the backlight to be continuously on.
 #define BACKLIGHT_AUTO 1
@@ -39,6 +43,7 @@ typedef enum {
     T5577WriterViewTextInput, // Input for configuring text settings
     T5577WriterViewLoad,
     T5577WriterViewSave,
+    T5577WriterViewPopup,
     T5577WriterViewConfigure_i, // The configuration screen
     T5577WriterViewConfigure_e, // The configuration screen
     T5577WriterViewWrite, // The main screen
@@ -46,8 +51,8 @@ typedef enum {
 } T5577WriterView;
 
 typedef enum {
-    T5577WriterEventIdRedrawScreen = 0, // Custom event to redraw the screen
-    T5577WriterEventIdOkPressed = 42, // Custom event to process OK button getting pressed down
+    T5577WriterEventIdRepeatWriting = 0, // Custom event to redraw the screen
+    T5577WriterEventIdMaxWriteRep = 42, // Custom event to process OK button getting pressed down
 } T5577WriterEventId;
 
 typedef struct {
@@ -55,6 +60,7 @@ typedef struct {
     NotificationApp* notifications; // Used for controlling the backlight
     Submenu* submenu; // The application menu
     TextInput* text_input; // The text input screen
+    Popup* popup;
     VariableItemList* variable_item_list_config; // The configuration screen
     View* view_config_e; // The configuration screen
     View* view_save; 
@@ -85,6 +91,7 @@ typedef struct {
     t5577_rf_clock rf_clock;
     bool data_loaded[3];
     uint8_t edit_block_slc;
+    uint8_t writing_repeat_times;
 } T5577WriterModel;
 
 static inline int min(int a, int b) {
@@ -109,6 +116,7 @@ void initialize_model(T5577WriterModel* model) {
     initialize_config(model);
     model->user_block_num = 1;
     model->edit_block_slc = 1;
+    model->writing_repeat_times = 0;
     model->content = (uint32_t*)malloc(LFRFID_T5577_BLOCK_COUNT * sizeof(uint32_t));
     for(uint32_t i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++) {
         model->content[i] = 0;
@@ -347,7 +355,7 @@ static void t5577_writer_file_saver(void* context) {
         furi_string_printf(buffer, "Number of User Blocks: %u\n", model->user_block_num);
         storage_file_write(data_file, furi_string_get_cstr(buffer), furi_string_size(buffer));
         furi_string_printf(buffer, "\nRaw Data:\n");
-        for (int i = 0; i < model->user_block_num; i++)
+        for (int i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++)
         {   
             furi_string_cat_printf(
                 buffer,
@@ -366,8 +374,6 @@ static void t5577_writer_file_saver(void* context) {
 void t5577_writer_update_config_from_load(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
-
-    
     for (size_t i = 0; i < COUNT_OF(all_mods); i++) {
         if ((my_model->content[0] & all_mods[i].mod_page_zero) == all_mods[i].mod_page_zero) {
             my_model->modulation_index = (uint8_t)i;
@@ -390,7 +396,7 @@ void t5577_writer_update_config_from_load(void* context) {
 
 static void t5577_writer_config_enter_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
-
+    T5577WriterModel* my_model = view_get_model(app->view_write);
     variable_item_list_reset(app->variable_item_list_config);
     app->mod_item = variable_item_list_add(
         app->variable_item_list_config,
@@ -417,6 +423,12 @@ static void t5577_writer_config_enter_callback(void* context) {
         t5577_writer_edit_block_slc_change,
         app);
     View* view_config_i = variable_item_list_get_view(app->variable_item_list_config);
+
+    variable_item_set_current_value_index(app->mod_item,my_model->modulation_index);
+    variable_item_set_current_value_index(app->clock_item,my_model->rf_clock_index);
+    variable_item_set_current_value_index(app->block_num_item,my_model->user_block_num - 1);
+    variable_item_set_current_value_index(app->block_slc_item,my_model->edit_block_slc - 1);
+
     t5577_writer_modulation_change(app->mod_item);
     t5577_writer_rf_clock_change(app->clock_item);
     t5577_writer_user_block_num_change(app->block_num_item);
@@ -535,19 +547,12 @@ static void t5577_writer_view_save_callback(void* context) {
     
 }
 
-/**
- * @brief      Callback for drawing the game screen.
- * @details    This function is called when the screen needs to be redrawn, like when the model gets updated.
- * @param      canvas  The canvas to draw on.
- * @param      model   The model - MyModel object.
-*/
-static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
+static void t5577_writer_actual_writing(void* model) {
     T5577WriterModel* my_model = (T5577WriterModel*)model;
     my_model->content[0] = 0;
     my_model->content[0] |= my_model->modulation.mod_page_zero;
     my_model->content[0] |= my_model->rf_clock.clock_page_zero;
     my_model->content[0] |= (my_model->user_block_num << LFRFID_T5577_MAXBLOCK_SHIFT);
-
     LFRFIDT5577* data = (LFRFIDT5577*)malloc(sizeof(LFRFIDT5577));
     data->blocks_to_write = my_model->user_block_num;
     for(size_t i = 0; i < data->blocks_to_write; i++) {
@@ -555,8 +560,21 @@ static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
     }
     t5577_write(data);
     free(data);
+}
 
-    canvas_draw_str(canvas, 32, 10, "Writing...");
+/**
+ * @brief      Callback for drawing the game screen.
+ * @details    This function is called when the screen needs to be redrawn, like when the model gets updated.
+ * @param      canvas  The canvas to draw on.
+ * @param      model   The model - MyModel object.
+*/
+static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
+    t5577_writer_actual_writing(model);
+    canvas_set_bitmap_mode(canvas, true);
+    canvas_draw_icon(canvas, 0, 8, &I_NFC_manual_60x50);
+    canvas_draw_str_aligned(canvas, 97, 15, AlignCenter, AlignTop,    "Writing");
+    canvas_draw_str_aligned(canvas, 94, 27, AlignCenter, AlignTop, "Hold card next");
+    canvas_draw_str_aligned(canvas, 93, 39, AlignCenter, AlignTop, "to Flipper's back");
 }
 
 /**
@@ -566,7 +584,13 @@ static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
 */
 static void t5577_writer_view_write_timer_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
-    view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdRedrawScreen);
+    T5577WriterModel* model = view_get_model(app->view_write);
+    if (model->writing_repeat_times < MAX_REPEAT_WRITING_TIMES){
+        model->writing_repeat_times += 1;
+        view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdRepeatWriting);
+    } else {
+        view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdMaxWriteRep);
+    }
 }
 
 /**
@@ -576,12 +600,13 @@ static void t5577_writer_view_write_timer_callback(void* context) {
  * @param      context  The context - T5577WriterApp object.
 */
 static void t5577_writer_view_write_enter_callback(void* context) {
-    uint32_t period = furi_ms_to_ticks(500);
+    uint32_t repeat_writing_period = furi_ms_to_ticks(200);
     T5577WriterApp* app = (T5577WriterApp*)context;
     furi_assert(app->timer == NULL);
     app->timer =
         furi_timer_alloc(t5577_writer_view_write_timer_callback, FuriTimerTypePeriodic, context);
-    furi_timer_start(app->timer, period);
+    furi_timer_start(app->timer, repeat_writing_period);
+    dolphin_deed(DolphinDeedRfidEmulate);
 }
 
 /**
@@ -591,9 +616,11 @@ static void t5577_writer_view_write_enter_callback(void* context) {
 */
 static void t5577_writer_view_write_exit_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
+    T5577WriterModel* model = view_get_model(app->view_write);
     furi_timer_stop(app->timer);
     furi_timer_free(app->timer);
     app->timer = NULL;
+    model->writing_repeat_times = 0;
 }
 
 /**
@@ -605,15 +632,15 @@ static void t5577_writer_view_write_exit_callback(void* context) {
 static bool t5577_writer_view_write_custom_event_callback(uint32_t event, void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     switch(event) {
-    case T5577WriterEventIdRedrawScreen:
+    case T5577WriterEventIdRepeatWriting:
         // Redraw screen by passing true to last parameter of with_view_model.
         {
             bool redraw = true;
             with_view_model(
-                app->view_write, T5577WriterModel * _model, { UNUSED(_model); }, redraw);
+                app->view_write, T5577WriterModel * _model, {UNUSED(_model);}, redraw);
             return true;
         }
-    case T5577WriterEventIdOkPressed:
+    case T5577WriterEventIdMaxWriteRep:
         // Process the OK button.  We go to the saving scene.
         view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewSubmenu);
         return true;
@@ -634,9 +661,9 @@ static bool t5577_writer_view_write_input_callback(InputEvent* event, void* cont
     if(event->type == InputTypeShort) {
         if(event->key == InputKeyOk) {
         // We choose to send a custom event when user presses OK button.  t5577_writer_custom_event_callback will
-        // handle our T5577WriterEventIdOkPressed event.  We could have just put the code from
+        // handle our T5577WriterEventIdMaxWriteRep event.  We could have just put the code from
         // t5577_writer_custom_event_callback here, it's a matter of preference.
-        view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdOkPressed);
+        view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdMaxWriteRep);
         return true;
         }
     }
@@ -679,6 +706,8 @@ static T5577WriterApp* t5577_writer_app_alloc() {
     view_dispatcher_add_view(
         app->view_dispatcher, T5577WriterViewTextInput, text_input_get_view(app->text_input));
 
+    app->popup = popup_alloc();
+    view_dispatcher_add_view(app->view_dispatcher,T5577WriterViewPopup,popup_get_view(app->popup));
 
     app->view_load = view_alloc();
     view_set_previous_callback(app->view_load, t5577_writer_navigation_submenu_callback);
@@ -798,6 +827,8 @@ static void t5577_writer_app_free(T5577WriterApp* app) {
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_i);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_e);
     variable_item_list_free(app->variable_item_list_config);
+    view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewPopup);
+    popup_free(app->popup);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewSave);
     view_free(app->view_save);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewSubmenu);

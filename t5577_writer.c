@@ -371,9 +371,15 @@ void uint32_to_byte_buffer(uint32_t block_data, uint8_t byte_buffer[4]) {
     byte_buffer[3] = block_data & 0xFF;
 }
 
-uint32_t byte_buffer_to_uint32(const uint8_t byte_buffer[4]) {
-    return ((uint32_t)(byte_buffer[0] << 24)) ;
+uint32_t byte_buffer_to_uint32(uint8_t byte_buffer[4]) {
+    uint32_t block_data = 0;
+    block_data |= ((uint32_t)byte_buffer[0] << 24);
+    block_data |= ((uint32_t)byte_buffer[1] << 16);
+    block_data |= ((uint32_t)byte_buffer[2] << 8);
+    block_data |= ((uint32_t)byte_buffer[3]);
+    return block_data;
 }
+
 
 static void t5577_writer_content_byte_input_confirmed(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;

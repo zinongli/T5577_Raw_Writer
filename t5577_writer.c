@@ -150,24 +150,6 @@ static uint32_t t5577_writer_navigation_submenu_callback(void* _context) {
     return T5577WriterViewSubmenu;
 }
 
-
-/**
- * @brief      Callback for returning to configure screen.
- * @details    This function is called when user press back button.  We return VIEW_NONE to
- *            indicate that we want to navigate to the configure screen.
- * @param      _context  The context - unused
- * @return     next view id
-*/
-//static uint32_t t5577_writer_navigation_configure_callback(void* _context) {
-//    UNUSED(_context);
-//    return T5577WriterViewConfigure_i;
-//}
-
-static uint32_t t5577_writer_navigation_file_callback(void* _context) {
-    UNUSED(_context);
-    return T5577WriterViewSubmenu;
-}
-
 /**
  * @brief      Handle submenu item selection.
  * @details    This function is called when user selects an item from the submenu.
@@ -197,21 +179,13 @@ static void t5577_writer_submenu_callback(void* context, uint32_t index) {
     }
 }
 
-/**
- * Our 1st sample setting is a team color.  We have 3 options: red, green, and blue.
-*/
 static const char* modulation_config_label = "Modulation";
-//static char* modulation_names[] = {"Direct", "PSK1", "PSK2", "PSK3", "FSK1", "FSK2", "FSK1a", "FSK2a","ASK/Man","Biphase","Diphase"};
 static void t5577_writer_modulation_change(VariableItem* item) {
     T5577WriterApp* app = variable_item_get_context(item);
-    FURI_LOG_D(TAG,"app defined");
     T5577WriterModel* model = view_get_model(app->view_write);
-    FURI_LOG_D(TAG,"model defined");
     if (model->data_loaded[0]) {
-        FURI_LOG_D(TAG,"loaded entered");
         variable_item_set_current_value_index(item,model->modulation_index);
     } else{
-        FURI_LOG_D(TAG,"else entered");
         uint8_t modulation_index = variable_item_get_current_value_index(item);
         model->modulation_index = modulation_index;
         model->modulation = all_mods[modulation_index];
@@ -224,7 +198,6 @@ static const char* rf_clock_config_label = "RF Clock";
 static void t5577_writer_rf_clock_change(VariableItem* item) {
     T5577WriterApp* app = variable_item_get_context(item);
     T5577WriterModel* model = view_get_model(app->view_write);
-
     if (model->data_loaded[1]) {
         variable_item_set_current_value_index(item,model->rf_clock_index);
     } else{
@@ -255,7 +228,7 @@ static void t5577_writer_user_block_num_change(VariableItem* item) {
     furi_string_printf(buffer, "%u", model->user_block_num);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
     for(uint8_t i = model->user_block_num; i < LFRFID_T5577_BLOCK_COUNT; i++) {
-        model->content[i] = 0;
+        model->content[i] = 0; // pad the unneeded blocks with zeros
     }
     furi_string_free(buffer);
 }
@@ -286,7 +259,7 @@ void ensure_dir_exists(Storage *storage)
         FURI_LOG_I(TAG, "Directory exists: %s", T5577_WRITER_APPS_DATA_FOLDER);
     }
 
-    // If wiegand directory doesn't exist, create it.
+    // If t5577_writer directory doesn't exist, create it.
     if (!storage_dir_exists(storage, T5577_WRITER_FILE_FOLDER))
     {
         FURI_LOG_I(TAG, "Creating directory: %s", T5577_WRITER_FILE_FOLDER);
@@ -297,17 +270,13 @@ void ensure_dir_exists(Storage *storage)
         FURI_LOG_I(TAG, "Directory exists: %s", T5577_WRITER_FILE_FOLDER);
     }
 }
-/**
- * Our 2nd sample setting is a text field.  When the user clicks OK on the configuration 
- * setting we use a text input screen to allow the user to enter a name.  This function is
- * called when the user clicks OK on the text input screen.
-*/
+
 static const char* tag_name_entry_text = "Enter name";
 static const char* tag_name_default_value = "Tag_1";
 static void t5577_writer_file_saver(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* model = view_get_model(app->view_write);
-    model->content[0] = 0;
+    model->content[0] = 0; // clean up first block before deciding to write or save
     model->content[0] |= model->modulation.mod_page_zero;
     model->content[0] |= model->rf_clock.clock_page_zero;
     model->content[0] |= (model->user_block_num << LFRFID_T5577_MAXBLOCK_SHIFT);
@@ -353,7 +322,7 @@ static void t5577_writer_file_saver(void* context) {
         furi_string_push_back(buffer, '\n');
         storage_file_write(data_file, furi_string_get_cstr(buffer), furi_string_size(buffer));
         storage_file_close(data_file);
-    view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewSubmenu);
+    view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewSubmenu); // maybe add a pop up later
     }
 }
 
@@ -374,16 +343,17 @@ void t5577_writer_update_config_from_load(void* context) {
         }
     }
 
-    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xE;
+    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;  
 
-    memset(my_model->data_loaded, true, sizeof(my_model->data_loaded));
+    memset(my_model->data_loaded, true, sizeof(my_model->data_loaded)); // Everything is loaded
 
 }
 
 static void t5577_writer_config_enter_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
-    variable_item_list_reset(app->variable_item_list_config);
+    variable_item_list_reset(app->variable_item_list_config); 
+    // Recreate this view every time we enter it so that it's always updated
     app->mod_item = variable_item_list_add(
         app->variable_item_list_config,
         modulation_config_label,
@@ -422,13 +392,12 @@ static void t5577_writer_config_enter_callback(void* context) {
     view_set_previous_callback(
         view_config_i,
         t5577_writer_navigation_submenu_callback);
-    view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_i);
+    view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_i); // delete the last one
     view_dispatcher_add_view(
         app->view_dispatcher,
         T5577WriterViewConfigure_i,
         view_config_i);
-    view_dispatcher_switch_to_view(app->view_dispatcher,T5577WriterViewConfigure_i);
-    FURI_LOG_D(TAG,"enter_callback_finished");
+    view_dispatcher_switch_to_view(app->view_dispatcher,T5577WriterViewConfigure_i); // recreate it
 }
 
 void t5577_writer_view_load_callback(void* context) {
@@ -438,13 +407,11 @@ void t5577_writer_view_load_callback(void* context) {
     Storage* storage = furi_record_open(RECORD_STORAGE);
     ensure_dir_exists(storage);
     File* data_file = storage_file_alloc(storage);
-    dialog_file_browser_set_basic_options(&browser_options, T5577_WRITER_FILE_EXTENSION, NULL);
+    dialog_file_browser_set_basic_options(&browser_options, T5577_WRITER_FILE_EXTENSION, &I_icon);
     browser_options.base_path = T5577_WRITER_FILE_FOLDER;
     furi_string_set(app->file_path, browser_options.base_path);
     FuriString* buffer = furi_string_alloc();
-
     if(dialog_file_browser_show(app->dialogs, app->file_path, app->file_path, &browser_options)) {
-        
         if(storage_file_open(
                data_file, furi_string_get_cstr(app->file_path), FSAM_READ, FSOM_OPEN_EXISTING)) {
             while(!storage_file_eof(data_file)) { // fill buffer with every line because ch == '\n'
@@ -466,7 +433,8 @@ void t5577_writer_view_load_callback(void* context) {
                     int i = 0;
                     while(i < length) {
                         if(furi_string_get_char(buffer, i) == ':') {
-                            row_num_char_buffer[0] = furi_string_get_char(buffer, i - 1); //the number before ":" is block num
+                            row_num_char_buffer[0] = furi_string_get_char(buffer, i - 1); 
+                            //the number before ":" is block num
                             i += 2; // skip a space
                             for(size_t j = 0; j < sizeof(row_data_char_buffer); j++) {
                                 ch = furi_string_get_char(buffer, i);
@@ -494,8 +462,7 @@ void t5577_writer_view_load_callback(void* context) {
 
 /**
  * @brief      Callback when item in configuration screen is clicked.
- * @details    This function is called when user clicks OK on an item in the configuration screen.
- *            If the item clicked is our text field then we switch to the text input screen.
+ * @details    This function is called when user clicks OK on an item in the text input screen.
  * @param      context  The context - T5577WriterApp object.
  * @param      index - The index of the item that was clicked.
 */
@@ -524,18 +491,17 @@ static void t5577_writer_view_save_callback(void* context) {
         app->temp_buffer,
         app->temp_buffer_size,
         clear_previous_text);
-    // Pressing the BACK button will reload the configure screen.
+    // Pressing the BACK button will return to the main menu.
     view_set_previous_callback(
-        text_input_get_view(app->text_input), t5577_writer_navigation_file_callback);
+        text_input_get_view(app->text_input), t5577_writer_navigation_submenu_callback);
 
     // Show text input dialog.
     view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewTextInput);
-    
 }
 
 static void t5577_writer_actual_writing(void* model) {
     T5577WriterModel* my_model = (T5577WriterModel*)model;
-    my_model->content[0] = 0;
+    my_model->content[0] = 0; // clear up block 0
     my_model->content[0] |= my_model->modulation.mod_page_zero;
     my_model->content[0] |= my_model->rf_clock.clock_page_zero;
     my_model->content[0] |= (my_model->user_block_num << LFRFID_T5577_MAXBLOCK_SHIFT);
@@ -549,8 +515,8 @@ static void t5577_writer_actual_writing(void* model) {
 }
 
 /**
- * @brief      Callback for drawing the game screen.
- * @details    This function is called when the screen needs to be redrawn, like when the model gets updated.
+ * @brief      Callback for drawing the writing screen.
+ * @details    This function is called when the screen needs to be redrawn, so that the writing command is repeated.
  * @param      canvas  The canvas to draw on.
  * @param      model   The model - MyModel object.
 */
@@ -576,7 +542,6 @@ static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
  * @details    This function is called when the timer is elapsed.  We use this to queue a redraw event.
  * @param      context  The context - T5577WriterApp object.
 */
-
 static void t5577_writer_view_write_timer_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* model = view_get_model(app->view_write);
@@ -589,9 +554,9 @@ static void t5577_writer_view_write_timer_callback(void* context) {
 }
 
 /**
- * @brief      Callback when the user starts the game screen.
- * @details    This function is called when the user enters the game screen.  We start a timer to
- *           redraw the screen periodically (so the random number is refreshed).
+ * @brief      Callback when the user starts the writing screen.
+ * @details    This function is called when the user enters the writing screen.  We start a timer to
+ *           redraw the screen periodically. (exactly like PsychToolBox lol)
  * @param      context  The context - T5577WriterApp object.
 */
 static void t5577_writer_view_write_enter_callback(void* context) {
@@ -605,8 +570,8 @@ static void t5577_writer_view_write_enter_callback(void* context) {
 }
 
 /**
- * @brief      Callback when the user exits the game screen.
- * @details    This function is called when the user exits the game screen.  We stop the timer.
+ * @brief      Callback when the user exits the writing screen.
+ * @details    This function is called when the user exits the writing screen.  We stop the timer.
  * @param      context  The context - T5577WriterApp object.
 */
 static void t5577_writer_view_write_exit_callback(void* context) {
@@ -642,27 +607,6 @@ static bool t5577_writer_view_write_custom_event_callback(uint32_t event, void* 
     default:
         return false;
     }
-}
-
-/**
- * @brief      Callback for game screen input.
- * @details    This function is called when the user presses a button while on the game screen.
- * @param      event    The event - InputEvent object.
- * @param      context  The context - T5577WriterApp object.
- * @return     true if the event was handled, false otherwise.
-*/
-static bool t5577_writer_view_write_input_callback(InputEvent* event, void* context) {
-    T5577WriterApp* app = (T5577WriterApp*)context;
-    if(event->type == InputTypeShort) {
-        if(event->key == InputKeyOk) {
-        // We choose to send a custom event when user presses OK button.  t5577_writer_custom_event_callback will
-        // handle our T5577WriterEventIdMaxWriteRep event.  We could have just put the code from
-        // t5577_writer_custom_event_callback here, it's a matter of preference.
-        view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdMaxWriteRep);
-        return true;
-        }
-    }
-    return false;
 }
 
 /**
@@ -716,7 +660,6 @@ static T5577WriterApp* t5577_writer_app_alloc() {
     
     app->view_write = view_alloc();
     view_set_draw_callback(app->view_write, t5577_writer_view_write_callback);
-    view_set_input_callback(app->view_write, t5577_writer_view_write_input_callback);
     view_set_previous_callback(app->view_write, t5577_writer_navigation_submenu_callback);
     view_set_enter_callback(app->view_write, t5577_writer_view_write_enter_callback);
     view_set_exit_callback(app->view_write, t5577_writer_view_write_exit_callback);

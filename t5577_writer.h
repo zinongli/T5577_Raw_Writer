@@ -1,0 +1,3 @@
+#define T5577_WRITER_APPS_DATA_FOLDER EXT_PATH("apps_data")
+#define T5577_WRITER_FILE_FOLDER      EXT_PATH("apps_data/t5577_writer")
+#define T5577_WRITER_FILE_EXTENSION ".t5577"

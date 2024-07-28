@@ -374,11 +374,7 @@ void t5577_writer_update_config_from_load(void* context) {
         }
     }
 
-<<<<<<< Updated upstream
-    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;
-=======
     my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xE;
->>>>>>> Stashed changes
 
     memset(my_model->data_loaded, true, sizeof(my_model->data_loaded));
 

@@ -454,7 +454,7 @@ static void t5577_writer_config_enter_callback(void* context) {
     app->block_slc_item = variable_item_list_add(
         app->variable_item_list_config,
         edit_block_slc_config_label,
-        LFRFID_T5577_BLOCK_COUNT,
+        LFRFID_T5577_BLOCK_COUNT - 1,
         t5577_writer_edit_block_slc_change,
         app);
     app->byte_buffer_item = variable_item_list_add(

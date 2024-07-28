@@ -23,7 +23,7 @@
 
 
 #define TAG "T5577 Writer"
-#define MAX_REPEAT_WRITING_FRAMES 15
+#define MAX_REPEAT_WRITING_FRAMES 10
 #define ENDING_WRITING_ICON_FRAMES 5
 
 // Change this to BACKLIGHT_AUTO if you don't want the backlight to be continuously on.
@@ -389,7 +389,7 @@ void t5577_writer_update_config_from_load(void* context) {
         }
     }
 
-    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0x7;
+    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;
 
     memset(my_model->data_loaded, true, sizeof(my_model->data_loaded));
 

@@ -6,6 +6,7 @@
 #include <gui/modules/popup.h>
 #include <gui/modules/submenu.h>
 #include <gui/modules/text_input.h>
+#include <gui/modules/byte_input.h>
 #include <gui/modules/widget.h>
 #include <gui/modules/variable_item_list.h>
 #include <notification/notification.h>
@@ -34,58 +35,69 @@ typedef enum {
     T5577WriterSubmenuIndexAbout,
 } T5577WriterSubmenuIndex;
 
+// Each view is a screen we show the user.
 typedef enum {
-    T5577WriterViewSubmenu,
-    T5577WriterViewTextInput, 
+    T5577WriterViewSubmenu, // The menu when the app starts
+    T5577WriterViewTextInput, // Input for configuring text settings
+    T5577WriterViewByteInput,
     T5577WriterViewLoad,
     T5577WriterViewSave,
-    T5577WriterViewConfigure_i, // The configuration screen that's recreated every time we enter it
-    T5577WriterViewConfigure_e, // The configuration screen store front that's constantly there
-    T5577WriterViewWrite, 
-    T5577WriterViewAbout,
+    T5577WriterViewPopup,
+    T5577WriterViewConfigure_i, // The configuration screen
+    T5577WriterViewConfigure_e, // The configuration screen
+    T5577WriterViewWrite, // The main screen
+    T5577WriterViewAbout, // The about screen with directions, link to social channel, etc.
 } T5577WriterView;
 
 typedef enum {
-    T5577WriterEventIdRepeatWriting = 0, // Custom event to repeat sending writing commands
-    T5577WriterEventIdMaxWriteRep = 42, // Custom event to exit writing view
+    T5577WriterEventIdRepeatWriting = 0, // Custom event to redraw the screen
+    T5577WriterEventIdMaxWriteRep = 42, // Custom event to process OK button getting pressed down
 } T5577WriterEventId;
 
 typedef struct {
     ViewDispatcher* view_dispatcher; // Switches between our views
     NotificationApp* notifications; // Used for controlling the backlight
     Submenu* submenu; // The application menu
+
     TextInput* text_input; // The text input screen
-    VariableItemList* variable_item_list_config; // The internal configuration view
-    View* view_config_e; // The external configuration view
-    View* view_save;  // The save view
-    View* view_write; // The writing view
+    Popup* popup;
+    VariableItemList* variable_item_list_config; // The configuration screen
+    View* view_config_e; // The configuration screen
+    View* view_save; 
+    View* view_write; // The main screen
     Widget* widget_about; // The about screen
     View* view_load; // The load view
 
-    VariableItem* mod_item; 
-    VariableItem* clock_item; 
-    VariableItem* block_num_item; 
-    VariableItem* block_slc_item; 
+    VariableItem* mod_item; // 
+    VariableItem* clock_item; //
+    VariableItem* block_num_item; // 
+    VariableItem* block_slc_item; //
+    VariableItem* byte_buffer_item; //
+    ByteInput* byte_input; // The byte input view
+    uint8_t* bytes_buffer[4];
+    uint8_t bytes_count;
+
     char* temp_buffer; // Temporary buffer for text input
     uint32_t temp_buffer_size; // Size of temporary buffer
     
-    DialogsApp* dialogs; // dialog for file browser
-    FuriString* file_path; // apps_data/t5577_writer
+    DialogsApp* dialogs;
+    FuriString* file_path;
     FuriTimer* timer; // Timer for redrawing the screen
+    ViewNavigationCallback config_enter_callback;
 } T5577WriterApp;
 
 
 typedef struct {
-    uint8_t modulation_index; // The index for modulation
-    uint8_t rf_clock_index; // The index for RF clock
+    uint8_t modulation_index; // The index for total number of pins
+    uint8_t rf_clock_index; // The index for total number of pins
     FuriString* tag_name_str; // The name setting
-    uint8_t user_block_num; // The total number of blocks to be used, i.e. signal length
-    uint32_t* content; // The content, 8 blocks of uint32
+    uint8_t user_block_num; // The total number of pins we are adjusting
+    uint32_t* content; // The cutting content
     t5577_modulation modulation;
     t5577_rf_clock rf_clock;
-    bool data_loaded[3]; // The on/off knobs recording whether the config screen is showing loaded data
-    uint8_t edit_block_slc; // Select the block to edit
-    uint8_t writing_repeat_times; // How many times have the write command been sent
+    bool data_loaded[3];
+    uint8_t edit_block_slc;
+    uint8_t writing_repeat_times;
 } T5577WriterModel;
 
 void initialize_config(T5577WriterModel* model) {
@@ -687,7 +699,12 @@ static T5577WriterApp* t5577_writer_app_alloc() {
         T5577WriterViewSave,
         app->view_save);
 
-
+    app->bytes_count = 4;
+    memset(app->bytes_buffer, 0, sizeof(app->bytes_buffer));
+    
+    app->byte_input = byte_input_alloc();
+    view_dispatcher_add_view(
+        app->view_dispatcher, T5577WriterViewByteInput, byte_input_get_view(app->byte_input));
     app->variable_item_list_config = variable_item_list_alloc();
 
     app->view_config_e = view_alloc();
@@ -761,6 +778,7 @@ static void t5577_writer_app_free(T5577WriterApp* app) {
     view_free(app->view_load);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_i);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_e);
+    view_dispatcher_remove_view(app->view_dispatcher,T5577WriterViewByteInput);
     variable_item_list_free(app->variable_item_list_config);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewSave);
     view_free(app->view_save);

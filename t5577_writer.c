@@ -23,7 +23,8 @@
 
 
 #define TAG "T5577 Writer"
-#define MAX_REPEAT_WRITING_TIMES 15
+#define MAX_REPEAT_WRITING_FRAMES 15
+#define ENDING_WRITING_ICON_FRAMES 5
 
 // Change this to BACKLIGHT_AUTO if you don't want the backlight to be continuously on.
 #define BACKLIGHT_AUTO 1
@@ -569,12 +570,20 @@ static void t5577_writer_actual_writing(void* model) {
  * @param      model   The model - MyModel object.
 */
 static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
-    t5577_writer_actual_writing(model);
-    canvas_set_bitmap_mode(canvas, true);
-    canvas_draw_icon(canvas, 0, 8, &I_NFC_manual_60x50);
-    canvas_draw_str_aligned(canvas, 97, 15, AlignCenter, AlignTop,    "Writing");
-    canvas_draw_str_aligned(canvas, 94, 27, AlignCenter, AlignTop, "Hold card next");
-    canvas_draw_str_aligned(canvas, 93, 39, AlignCenter, AlignTop, "to Flipper's back");
+    T5577WriterModel* my_model = (T5577WriterModel*) model;
+    if (my_model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES) {
+        t5577_writer_actual_writing(model);
+        canvas_set_bitmap_mode(canvas, true);
+        canvas_draw_icon(canvas, 0, 8, &I_NFC_manual_60x50);
+        canvas_draw_str_aligned(canvas, 97, 15, AlignCenter, AlignTop,    "Writing");
+        canvas_draw_str_aligned(canvas, 94, 27, AlignCenter, AlignTop, "Hold card next");
+        canvas_draw_str_aligned(canvas, 93, 39, AlignCenter, AlignTop, "to Flipper's back");
+    } else {
+        canvas_set_bitmap_mode(canvas, true);
+        canvas_draw_icon(canvas, 0, 7,  &I_RFID_dolphinsuccess_108x57);
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 72, 20, "Finished!");
+    }
 }
 
 /**
@@ -582,10 +591,11 @@ static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
  * @details    This function is called when the timer is elapsed.  We use this to queue a redraw event.
  * @param      context  The context - T5577WriterApp object.
 */
+
 static void t5577_writer_view_write_timer_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* model = view_get_model(app->view_write);
-    if (model->writing_repeat_times < MAX_REPEAT_WRITING_TIMES){
+    if (model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES + ENDING_WRITING_ICON_FRAMES){
         model->writing_repeat_times += 1;
         view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdRepeatWriting);
     } else {

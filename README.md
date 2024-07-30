@@ -18,3 +18,6 @@ You can also save the data you've just loaded and/or configured.
 
 - [ ] Update writing success icon as Willy did in momentum app catalog repo. 
 - [ ] Edit the directory handling into using OFW built-in functions storage_simply_mkdir. Also Flipper format. Credit auguzanellato.
+
+## Special Thanks:
+Thank @jamisonderek for his [Flipper Zero Tutorial repository](https://github.com/jamisonderek/flipper-zero-tutorials) and [YouTube channel](https://github.com/jamisonderek/flipper-zero-tutorials#:~:text=YouTube%3A%20%40MrDerekJamison)! This app is built with his Skeleton App and GPIO Wiegand app as references. 

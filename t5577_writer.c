@@ -112,7 +112,7 @@ void initialize_model(T5577WriterModel* model) {
     model->user_block_num = 1;
     model->edit_block_slc = 1;
     model->writing_repeat_times = 0;
-    for(uint32_t i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++) {
+    for(uint32_t i = 0; i <= LFRFID_T5577_BLOCK_COUNT; i++) {
         model->content[i] = 0;
     }
     memset(model->data_loaded, false, sizeof(model->data_loaded));
@@ -240,7 +240,7 @@ static void t5577_writer_user_block_num_change(VariableItem* item) {
     FuriString *buffer = furi_string_alloc();
     furi_string_printf(buffer, "%u", model->user_block_num);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
-    for(uint8_t i = model->user_block_num; i < LFRFID_T5577_BLOCK_COUNT; i++) {
+    for(uint8_t i = model->user_block_num; i <= LFRFID_T5577_BLOCK_COUNT; i++) {
         model->content[i] = 0; // pad the unneeded blocks with zeros
     }
     furi_string_free(buffer);
@@ -327,7 +327,7 @@ static void t5577_writer_file_saver(void* context) {
         furi_string_printf(buffer, "Number of User Blocks: %u\n", model->user_block_num);
         storage_file_write(data_file, furi_string_get_cstr(buffer), furi_string_size(buffer));
         furi_string_printf(buffer, "\nRaw Data:\n");
-        for (int i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++)
+        for (int i = 0; i <= LFRFID_T5577_BLOCK_COUNT; i++)
         {   
             furi_string_cat_printf(
                 buffer,

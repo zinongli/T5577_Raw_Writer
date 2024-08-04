@@ -21,10 +21,8 @@
 #include <t5577_writer.h>
 #include <dolphin/dolphin.h>
 
-
-
-#define TAG "T5577 Writer"
-#define MAX_REPEAT_WRITING_FRAMES 10
+#define TAG                        "T5577 Writer"
+#define MAX_REPEAT_WRITING_FRAMES  10
 #define ENDING_WRITING_ICON_FRAMES 5
 
 typedef enum {
@@ -63,14 +61,14 @@ typedef struct {
     Popup* popup;
     VariableItemList* variable_item_list_config; // The configuration screen
     View* view_config_e; // The configuration screen
-    View* view_save; 
+    View* view_save;
     View* view_write; // The main screen
     Widget* widget_about; // The about screen
     View* view_load; // The load view
 
-    VariableItem* mod_item; // 
+    VariableItem* mod_item; //
     VariableItem* clock_item; //
-    VariableItem* block_num_item; // 
+    VariableItem* block_num_item; //
     VariableItem* block_slc_item; //
     VariableItem* byte_buffer_item; //
     ByteInput* byte_input; // The byte input view
@@ -79,13 +77,12 @@ typedef struct {
 
     char* temp_buffer; // Temporary buffer for text input
     uint32_t temp_buffer_size; // Size of temporary buffer
-    
+
     DialogsApp* dialogs;
     FuriString* file_path;
     FuriTimer* timer; // Timer for redrawing the screen
     ViewNavigationCallback config_enter_callback;
 } T5577WriterApp;
-
 
 typedef struct {
     uint8_t modulation_index; // The index for total number of pins
@@ -121,7 +118,7 @@ void initialize_model(T5577WriterModel* model) {
 uint8_t rf_clock_choices[COUNT_OF(all_rf_clocks)];
 void initialize_rf_clock_choices(uint8_t* rf_clock_choices) {
     // Populate the rf_clock_choices array
-    for (size_t i = 0; i < COUNT_OF(all_rf_clocks); i++) {
+    for(size_t i = 0; i < COUNT_OF(all_rf_clocks); i++) {
         rf_clock_choices[i] = all_rf_clocks[i].rf_clock_num;
     }
 }
@@ -129,7 +126,7 @@ void initialize_rf_clock_choices(uint8_t* rf_clock_choices) {
 char* modulation_names[COUNT_OF(all_mods)];
 void initialize_mod_names(char** modulation_names) {
     // Populate the modulation_names array
-    for (size_t i = 0; i < COUNT_OF(all_mods); i++) {
+    for(size_t i = 0; i < COUNT_OF(all_mods); i++) {
         modulation_names[i] = all_mods[i].modulation_name;
     }
 }
@@ -196,9 +193,9 @@ static const char* modulation_config_label = "Modulation";
 static void t5577_writer_modulation_change(VariableItem* item) {
     T5577WriterApp* app = variable_item_get_context(item);
     T5577WriterModel* model = view_get_model(app->view_write);
-    if (model->data_loaded[0]) {
-        variable_item_set_current_value_index(item,model->modulation_index);
-    } else{
+    if(model->data_loaded[0]) {
+        variable_item_set_current_value_index(item, model->modulation_index);
+    } else {
         uint8_t modulation_index = variable_item_get_current_value_index(item);
         model->modulation_index = modulation_index;
         model->modulation = all_mods[modulation_index];
@@ -211,16 +208,15 @@ static const char* rf_clock_config_label = "RF Clock";
 static void t5577_writer_rf_clock_change(VariableItem* item) {
     T5577WriterApp* app = variable_item_get_context(item);
     T5577WriterModel* model = view_get_model(app->view_write);
-    if (model->data_loaded[1]) {
-        variable_item_set_current_value_index(item,model->rf_clock_index);
-    } else{
+    if(model->data_loaded[1]) {
+        variable_item_set_current_value_index(item, model->rf_clock_index);
+    } else {
         uint8_t rf_clock_index = variable_item_get_current_value_index(item);
         model->rf_clock_index = rf_clock_index;
         model->rf_clock = all_rf_clocks[rf_clock_index];
-        
     }
     model->data_loaded[1] = false;
-    FuriString *buffer = furi_string_alloc();
+    FuriString* buffer = furi_string_alloc();
     furi_string_printf(buffer, "%u", rf_clock_choices[model->rf_clock_index]);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
     furi_string_free(buffer);
@@ -230,14 +226,14 @@ static const char* user_block_num_config_label = "Num of Blocks";
 static void t5577_writer_user_block_num_change(VariableItem* item) {
     T5577WriterApp* app = variable_item_get_context(item);
     T5577WriterModel* model = view_get_model(app->view_write);
-    if (model->data_loaded[2]) {
-        variable_item_set_current_value_index(item,model->user_block_num - 1);
+    if(model->data_loaded[2]) {
+        variable_item_set_current_value_index(item, model->user_block_num - 1);
     } else {
         uint8_t user_block_num_index = variable_item_get_current_value_index(item);
         model->user_block_num = user_block_num_index + 1;
     }
     model->data_loaded[2] = false;
-    FuriString *buffer = furi_string_alloc();
+    FuriString* buffer = furi_string_alloc();
     furi_string_printf(buffer, "%u", model->user_block_num);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
     for(uint8_t i = model->user_block_num; i < LFRFID_T5577_BLOCK_COUNT; i++) {
@@ -252,8 +248,8 @@ static void t5577_writer_edit_block_slc_change(VariableItem* item) {
     T5577WriterModel* model = view_get_model(app->view_write);
     uint8_t edit_block_slc_index = variable_item_get_current_value_index(item);
     model->edit_block_slc = edit_block_slc_index + 1;
-    variable_item_set_current_value_index(item,model->edit_block_slc - 1);
-    FuriString *buffer = furi_string_alloc();
+    variable_item_set_current_value_index(item, model->edit_block_slc - 1);
+    FuriString* buffer = furi_string_alloc();
     furi_string_printf(buffer, "%u", model->edit_block_slc);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
 
@@ -263,27 +259,20 @@ static void t5577_writer_edit_block_slc_change(VariableItem* item) {
     furi_string_free(buffer);
 }
 
-void ensure_dir_exists(Storage *storage)
-{
+void ensure_dir_exists(Storage* storage) {
     // If apps_data directory doesn't exist, create it.
-    if (!storage_dir_exists(storage, T5577_WRITER_APPS_DATA_FOLDER))
-    {
+    if(!storage_dir_exists(storage, T5577_WRITER_APPS_DATA_FOLDER)) {
         FURI_LOG_I(TAG, "Creating directory: %s", T5577_WRITER_APPS_DATA_FOLDER);
         storage_simply_mkdir(storage, T5577_WRITER_APPS_DATA_FOLDER);
-    }
-    else
-    {
+    } else {
         FURI_LOG_I(TAG, "Directory exists: %s", T5577_WRITER_APPS_DATA_FOLDER);
     }
 
     // If t5577_writer directory doesn't exist, create it.
-    if (!storage_dir_exists(storage, T5577_WRITER_FILE_FOLDER))
-    {
+    if(!storage_dir_exists(storage, T5577_WRITER_FILE_FOLDER)) {
         FURI_LOG_I(TAG, "Creating directory: %s", T5577_WRITER_FILE_FOLDER);
         storage_simply_mkdir(storage, T5577_WRITER_FILE_FOLDER);
-    }
-    else
-    {
+    } else {
         FURI_LOG_I(TAG, "Directory exists: %s", T5577_WRITER_FILE_FOLDER);
     }
 }
@@ -301,21 +290,22 @@ static void t5577_writer_file_saver(void* context) {
     with_view_model(
         app->view_write,
         T5577WriterModel * model,
-        {
-            furi_string_set(model->tag_name_str, app->temp_buffer);
-        },
+        { furi_string_set(model->tag_name_str, app->temp_buffer); },
         redraw);
-    FuriString *buffer = furi_string_alloc();
-    FuriString *file_path = furi_string_alloc();
+    FuriString* buffer = furi_string_alloc();
+    FuriString* file_path = furi_string_alloc();
     furi_string_printf(
-        file_path, "%s/%s%s", T5577_WRITER_FILE_FOLDER, furi_string_get_cstr(model->tag_name_str), T5577_WRITER_FILE_EXTENSION);
+        file_path,
+        "%s/%s%s",
+        T5577_WRITER_FILE_FOLDER,
+        furi_string_get_cstr(model->tag_name_str),
+        T5577_WRITER_FILE_EXTENSION);
 
-    Storage *storage = furi_record_open(RECORD_STORAGE);
+    Storage* storage = furi_record_open(RECORD_STORAGE);
     ensure_dir_exists(storage);
-    File *data_file = storage_file_alloc(storage);
-    if (storage_file_open(
-            data_file, furi_string_get_cstr(file_path), FSAM_WRITE, FSOM_OPEN_ALWAYS))
-    {
+    File* data_file = storage_file_alloc(storage);
+    if(storage_file_open(
+           data_file, furi_string_get_cstr(file_path), FSAM_WRITE, FSOM_OPEN_ALWAYS)) {
         furi_string_printf(buffer, "Filetype: Flipper T5577 Raw File\n");
         storage_file_write(data_file, furi_string_get_cstr(buffer), furi_string_size(buffer));
         furi_string_printf(buffer, "Version: 1.0\n");
@@ -327,39 +317,35 @@ static void t5577_writer_file_saver(void* context) {
         furi_string_printf(buffer, "Number of User Blocks: %u\n", model->user_block_num);
         storage_file_write(data_file, furi_string_get_cstr(buffer), furi_string_size(buffer));
         furi_string_printf(buffer, "\nRaw Data:\n");
-        for (int i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++)
-        {   
-            furi_string_cat_printf(
-                buffer,
-                "Block %u: %08lX\n",
-                i,
-                model->content[i]);
-        
+        for(int i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++) {
+            furi_string_cat_printf(buffer, "Block %u: %08lX\n", i, model->content[i]);
         }
         furi_string_push_back(buffer, '\n');
         storage_file_write(data_file, furi_string_get_cstr(buffer), furi_string_size(buffer));
         storage_file_close(data_file);
-    view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewSubmenu); // maybe add a pop up later
+        view_dispatcher_switch_to_view(
+            app->view_dispatcher, T5577WriterViewSubmenu); // maybe add a pop up later
     }
 }
 
 void t5577_writer_update_config_from_load(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
-    for (size_t i = 0; i < COUNT_OF(all_mods); i++) {
-        if ((my_model->content[0] & all_mods[i].mod_page_zero) == all_mods[i].mod_page_zero) {
+    for(size_t i = 0; i < COUNT_OF(all_mods); i++) {
+        if((my_model->content[0] & all_mods[i].mod_page_zero) == all_mods[i].mod_page_zero) {
             my_model->modulation_index = (uint8_t)i;
             my_model->modulation = all_mods[my_model->modulation_index];
         }
     }
 
-    for (size_t i = 0; i < COUNT_OF(all_rf_clocks); i++) {
-        if ((my_model->content[0] & all_rf_clocks[i].clock_page_zero) == all_rf_clocks[i].clock_page_zero) {
+    for(size_t i = 0; i < COUNT_OF(all_rf_clocks); i++) {
+        if((my_model->content[0] & all_rf_clocks[i].clock_page_zero) ==
+           all_rf_clocks[i].clock_page_zero) {
             my_model->rf_clock_index = (uint8_t)i;
             my_model->rf_clock = all_rf_clocks[my_model->rf_clock_index];
         }
     }
-    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;  
+    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;
     memset(my_model->data_loaded, true, sizeof(my_model->data_loaded)); // Everything is loaded
 }
 
@@ -380,7 +366,6 @@ uint32_t byte_buffer_to_uint32(uint8_t byte_buffer[4]) {
     return block_data;
 }
 
-
 static void t5577_writer_content_byte_input_confirmed(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
@@ -394,7 +379,7 @@ static void t5577_writer_content_byte_changed(void* context) {
 static void t5577_writer_config_item_clicked(void* context, uint32_t index) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
-    FuriString *buffer = furi_string_alloc();
+    FuriString* buffer = furi_string_alloc();
     furi_string_printf(buffer, "Enter Block %u Data", my_model->edit_block_slc);
     // Our hex input UI is the 5th in the config menue.
     if(index == 4) {
@@ -406,9 +391,7 @@ static void t5577_writer_config_item_clicked(void* context, uint32_t index) {
         with_view_model(
             app->view_write,
             T5577WriterModel * model,
-            {
-                uint32_to_byte_buffer(model->content[model->edit_block_slc],app->bytes_buffer);
-            },
+            { uint32_to_byte_buffer(model->content[model->edit_block_slc], app->bytes_buffer); },
             redraw);
 
         // Configure the text input.  When user enters text and clicks OK, key_copier_setting_text_updated be called.
@@ -418,11 +401,11 @@ static void t5577_writer_config_item_clicked(void* context, uint32_t index) {
             t5577_writer_content_byte_changed,
             app,
             app->bytes_buffer,
-            app->bytes_count
-            );
+            app->bytes_count);
 
         // Pressing the BACK button will reload the configure screen.
-        view_set_previous_callback(byte_input_get_view(app->byte_input), t5577_writer_navigation_config_e_callback);
+        view_set_previous_callback(
+            byte_input_get_view(app->byte_input), t5577_writer_navigation_config_e_callback);
 
         // Show text input dialog.
         view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewByteInput);
@@ -431,7 +414,7 @@ static void t5577_writer_config_item_clicked(void* context, uint32_t index) {
 static void t5577_writer_config_enter_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
-    variable_item_list_reset(app->variable_item_list_config); 
+    variable_item_list_reset(app->variable_item_list_config);
     // Recreate this view every time we enter it so that it's always updated
     app->mod_item = variable_item_list_add(
         app->variable_item_list_config,
@@ -458,33 +441,27 @@ static void t5577_writer_config_enter_callback(void* context) {
         t5577_writer_edit_block_slc_change,
         app);
     app->byte_buffer_item = variable_item_list_add(
-        app->variable_item_list_config, 
-        edit_block_data_config_label, 
-        1, 
-        NULL, 
-        app);
-    variable_item_list_set_enter_callback(app->variable_item_list_config, t5577_writer_config_item_clicked, app);
-    
+        app->variable_item_list_config, edit_block_data_config_label, 1, NULL, app);
+    variable_item_list_set_enter_callback(
+        app->variable_item_list_config, t5577_writer_config_item_clicked, app);
+
     View* view_config_i = variable_item_list_get_view(app->variable_item_list_config);
 
-    variable_item_set_current_value_index(app->mod_item,my_model->modulation_index);
-    variable_item_set_current_value_index(app->clock_item,my_model->rf_clock_index);
-    variable_item_set_current_value_index(app->block_num_item,my_model->user_block_num - 1);
-    variable_item_set_current_value_index(app->block_slc_item,my_model->edit_block_slc - 1);
+    variable_item_set_current_value_index(app->mod_item, my_model->modulation_index);
+    variable_item_set_current_value_index(app->clock_item, my_model->rf_clock_index);
+    variable_item_set_current_value_index(app->block_num_item, my_model->user_block_num - 1);
+    variable_item_set_current_value_index(app->block_slc_item, my_model->edit_block_slc - 1);
 
     t5577_writer_modulation_change(app->mod_item);
     t5577_writer_rf_clock_change(app->clock_item);
     t5577_writer_user_block_num_change(app->block_num_item);
     t5577_writer_edit_block_slc_change(app->block_slc_item);
-    view_set_previous_callback(
-        view_config_i,
-        t5577_writer_navigation_submenu_callback);
-    view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_i); // delete the last one
-    view_dispatcher_add_view(
-        app->view_dispatcher,
-        T5577WriterViewConfigure_i,
-        view_config_i);
-    view_dispatcher_switch_to_view(app->view_dispatcher,T5577WriterViewConfigure_i); // recreate it
+    view_set_previous_callback(view_config_i, t5577_writer_navigation_submenu_callback);
+    view_dispatcher_remove_view(
+        app->view_dispatcher, T5577WriterViewConfigure_i); // delete the last one
+    view_dispatcher_add_view(app->view_dispatcher, T5577WriterViewConfigure_i, view_config_i);
+    view_dispatcher_switch_to_view(
+        app->view_dispatcher, T5577WriterViewConfigure_i); // recreate it
 }
 
 void t5577_writer_view_load_callback(void* context) {
@@ -520,7 +497,7 @@ void t5577_writer_view_load_callback(void* context) {
                     int i = 0;
                     while(i < length) {
                         if(furi_string_get_char(buffer, i) == ':') {
-                            row_num_char_buffer[0] = furi_string_get_char(buffer, i - 1); 
+                            row_num_char_buffer[0] = furi_string_get_char(buffer, i - 1);
                             //the number before ":" is block num
                             i += 2; // skip a space
                             for(size_t j = 0; j < sizeof(row_data_char_buffer); j++) {
@@ -545,7 +522,6 @@ void t5577_writer_view_load_callback(void* context) {
     }
     view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewSubmenu);
 }
-
 
 /**
  * @brief      Callback when item in configuration screen is clicked.
@@ -608,12 +584,12 @@ static void t5577_writer_actual_writing(void* model) {
  * @param      model   The model - MyModel object.
 */
 static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
-    T5577WriterModel* my_model = (T5577WriterModel*) model;
-    if (my_model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES) {
+    T5577WriterModel* my_model = (T5577WriterModel*)model;
+    if(my_model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES) {
         t5577_writer_actual_writing(model);
         canvas_set_bitmap_mode(canvas, true);
         canvas_draw_icon(canvas, 0, 8, &I_NFC_manual_60x50);
-        canvas_draw_str_aligned(canvas, 97, 15, AlignCenter, AlignTop,    "Writing");
+        canvas_draw_str_aligned(canvas, 97, 15, AlignCenter, AlignTop, "Writing");
         canvas_draw_str_aligned(canvas, 94, 27, AlignCenter, AlignTop, "Hold card next");
         canvas_draw_str_aligned(canvas, 93, 39, AlignCenter, AlignTop, "to Flipper's back");
     } else {
@@ -632,7 +608,7 @@ static void t5577_writer_view_write_callback(Canvas* canvas, void* model) {
 static void t5577_writer_view_write_timer_callback(void* context) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* model = view_get_model(app->view_write);
-    if (model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES + ENDING_WRITING_ICON_FRAMES){
+    if(model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES + ENDING_WRITING_ICON_FRAMES) {
         model->writing_repeat_times += 1;
         view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdRepeatWriting);
     } else {
@@ -684,7 +660,7 @@ static bool t5577_writer_view_write_custom_event_callback(uint32_t event, void* 
         {
             bool redraw = true;
             with_view_model(
-                app->view_write, T5577WriterModel * _model, {UNUSED(_model);}, redraw);
+                app->view_write, T5577WriterModel * _model, { UNUSED(_model); }, redraw);
             return true;
         }
     case T5577WriterEventIdMaxWriteRep:
@@ -716,14 +692,19 @@ static T5577WriterApp* t5577_writer_app_alloc() {
     submenu_add_item(
         app->submenu, "Write", T5577WriterSubmenuIndexWrite, t5577_writer_submenu_callback, app);
     submenu_add_item(
-        app->submenu, "Config", T5577WriterSubmenuIndexConfigure, t5577_writer_submenu_callback, app);
+        app->submenu,
+        "Config",
+        T5577WriterSubmenuIndexConfigure,
+        t5577_writer_submenu_callback,
+        app);
     submenu_add_item(
         app->submenu, "Save", T5577WriterSubmenuIndexSave, t5577_writer_submenu_callback, app);
     submenu_add_item(
         app->submenu, "Load", T5577WriterSubmenuIndexLoad, t5577_writer_submenu_callback, app);
     submenu_add_item(
         app->submenu, "About", T5577WriterSubmenuIndexAbout, t5577_writer_submenu_callback, app);
-    view_set_previous_callback(submenu_get_view(app->submenu), t5577_writer_navigation_exit_callback);
+    view_set_previous_callback(
+        submenu_get_view(app->submenu), t5577_writer_navigation_exit_callback);
     view_dispatcher_add_view(
         app->view_dispatcher, T5577WriterViewSubmenu, submenu_get_view(app->submenu));
     view_dispatcher_switch_to_view(app->view_dispatcher, T5577WriterViewSubmenu);
@@ -736,15 +717,11 @@ static T5577WriterApp* t5577_writer_app_alloc() {
     view_set_previous_callback(app->view_load, t5577_writer_navigation_submenu_callback);
     view_set_enter_callback(app->view_load, t5577_writer_view_load_callback);
     view_set_context(app->view_load, app);
-    view_dispatcher_add_view(
-        app->view_dispatcher,
-        T5577WriterViewLoad,
-        app->view_load);
+    view_dispatcher_add_view(app->view_dispatcher, T5577WriterViewLoad, app->view_load);
 
     app->temp_buffer_size = 32;
     app->temp_buffer = (char*)malloc(app->temp_buffer_size);
-    
-    
+
     app->view_write = view_alloc();
     view_set_draw_callback(app->view_write, t5577_writer_view_write_callback);
     view_set_previous_callback(app->view_write, t5577_writer_navigation_submenu_callback);
@@ -759,7 +736,7 @@ static T5577WriterApp* t5577_writer_app_alloc() {
 
     FuriString* tag_name_str = furi_string_alloc();
     furi_string_set_str(tag_name_str, tag_name_default_value);
-    
+
     model->tag_name_str = tag_name_str;
     initialize_model(model);
     initialize_rf_clock_choices(rf_clock_choices);
@@ -769,36 +746,24 @@ static T5577WriterApp* t5577_writer_app_alloc() {
     view_set_previous_callback(app->view_save, t5577_writer_navigation_submenu_callback);
     view_set_enter_callback(app->view_save, t5577_writer_view_save_callback);
     view_set_context(app->view_save, app);
-    view_dispatcher_add_view(
-        app->view_dispatcher,
-        T5577WriterViewSave,
-        app->view_save);
+    view_dispatcher_add_view(app->view_dispatcher, T5577WriterViewSave, app->view_save);
 
     app->bytes_count = 4;
     memset(app->bytes_buffer, 0, sizeof(app->bytes_buffer));
-    
+
     app->byte_input = byte_input_alloc();
     view_dispatcher_add_view(
         app->view_dispatcher, T5577WriterViewByteInput, byte_input_get_view(app->byte_input));
     app->variable_item_list_config = variable_item_list_alloc();
 
     app->view_config_e = view_alloc();
-    view_set_previous_callback(
-        app->view_config_e,
-        t5577_writer_navigation_submenu_callback);
+    view_set_previous_callback(app->view_config_e, t5577_writer_navigation_submenu_callback);
     view_set_enter_callback(app->view_config_e, t5577_writer_config_enter_callback);
     view_set_context(app->view_config_e, app);
-    view_dispatcher_add_view(
-        app->view_dispatcher,
-        T5577WriterViewConfigure_e,
-        app->view_config_e);
-        
+    view_dispatcher_add_view(app->view_dispatcher, T5577WriterViewConfigure_e, app->view_config_e);
+
     View* view_buffer = view_alloc();
-    view_dispatcher_add_view(
-        app->view_dispatcher,
-        T5577WriterViewConfigure_i,
-        view_buffer);
-    
+    view_dispatcher_add_view(app->view_dispatcher, T5577WriterViewConfigure_i, view_buffer);
 
     app->widget_about = widget_alloc();
     widget_add_text_scroll_element(
@@ -844,7 +809,7 @@ static void t5577_writer_app_free(T5577WriterApp* app) {
     view_free(app->view_load);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_i);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewConfigure_e);
-    view_dispatcher_remove_view(app->view_dispatcher,T5577WriterViewByteInput);
+    view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewByteInput);
     variable_item_list_free(app->variable_item_list_config);
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewSave);
     view_free(app->view_save);

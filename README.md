@@ -16,7 +16,6 @@ You can also save the data you've just loaded and/or configured.
 
 ## To-Do:
 
-- [ ] Update writing success icon as Willy did in momentum app catalog repo. 
 - [ ] Edit the directory handling into using OFW built-in functions storage_simply_mkdir. Also Flipper format. Credit auguzanellato.
 
 ## Special Thanks:

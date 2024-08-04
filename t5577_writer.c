@@ -259,24 +259,6 @@ static void t5577_writer_edit_block_slc_change(VariableItem* item) {
     furi_string_free(buffer);
 }
 
-void ensure_dir_exists(Storage* storage) {
-    // If apps_data directory doesn't exist, create it.
-    if(!storage_dir_exists(storage, T5577_WRITER_APPS_DATA_FOLDER)) {
-        FURI_LOG_I(TAG, "Creating directory: %s", T5577_WRITER_APPS_DATA_FOLDER);
-        storage_simply_mkdir(storage, T5577_WRITER_APPS_DATA_FOLDER);
-    } else {
-        FURI_LOG_I(TAG, "Directory exists: %s", T5577_WRITER_APPS_DATA_FOLDER);
-    }
-
-    // If t5577_writer directory doesn't exist, create it.
-    if(!storage_dir_exists(storage, T5577_WRITER_FILE_FOLDER)) {
-        FURI_LOG_I(TAG, "Creating directory: %s", T5577_WRITER_FILE_FOLDER);
-        storage_simply_mkdir(storage, T5577_WRITER_FILE_FOLDER);
-    } else {
-        FURI_LOG_I(TAG, "Directory exists: %s", T5577_WRITER_FILE_FOLDER);
-    }
-}
-
 static const char* tag_name_entry_text = "Enter name";
 static const char* tag_name_default_value = "Tag_1";
 static void t5577_writer_file_saver(void* context) {
@@ -302,7 +284,7 @@ static void t5577_writer_file_saver(void* context) {
         T5577_WRITER_FILE_EXTENSION);
 
     Storage* storage = furi_record_open(RECORD_STORAGE);
-    ensure_dir_exists(storage);
+    storage_simply_mkdir(storage, STORAGE_APP_DATA_PATH_PREFIX);
     File* data_file = storage_file_alloc(storage);
     if(storage_file_open(
            data_file, furi_string_get_cstr(file_path), FSAM_WRITE, FSOM_OPEN_ALWAYS)) {
@@ -469,7 +451,7 @@ void t5577_writer_view_load_callback(void* context) {
     T5577WriterModel* model = view_get_model(app->view_write);
     DialogsFileBrowserOptions browser_options;
     Storage* storage = furi_record_open(RECORD_STORAGE);
-    ensure_dir_exists(storage);
+    storage_simply_mkdir(storage, STORAGE_APP_DATA_PATH_PREFIX);
     File* data_file = storage_file_alloc(storage);
     dialog_file_browser_set_basic_options(&browser_options, T5577_WRITER_FILE_EXTENSION, &I_icon);
     browser_options.base_path = T5577_WRITER_FILE_FOLDER;

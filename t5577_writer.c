@@ -780,10 +780,6 @@ static T5577WriterApp* t5577_writer_app_alloc() {
 
     app->notifications = furi_record_open(RECORD_NOTIFICATION);
 
-#ifdef BACKLIGHT_ON
-    notification_message(app->notifications, &sequence_display_backlight_enforce_on);
-#endif
-
     return app;
 }
 
@@ -793,9 +789,6 @@ static T5577WriterApp* t5577_writer_app_alloc() {
  * @param      app  The t5577_writer application object.
 */
 static void t5577_writer_app_free(T5577WriterApp* app) {
-#ifdef BACKLIGHT_ON
-    notification_message(app->notifications, &sequence_display_backlight_enforce_auto);
-#endif
     furi_record_close(RECORD_NOTIFICATION);
 
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewTextInput);

@@ -4,7 +4,7 @@ An easy to use T5577 raw writer app for Flipper Zero. [Discord project page.](ht
 
 Configure the modulation, RF Clock, number of blocks, and block data in the `Config` menu. 
 
-Or, you can load a .t5577 file into the app and write it. An example file can be found [here](https://github.com/zinongli/T5577_Raw_Writer/blob/b8f459c787802a443b2a943250b2ad8249f7c0ea/examples/Tag_1.t5577). The configuration will be automatically loaded from block 0 data. 
+Or, you can load a .t5577 file into the app and write it. An example file can be found [here](https://github.com/zinongli/T5577_Raw_Writer/blob/main/examples/Tag_1.t5577). The configuration will be automatically loaded from block 0 data. 
 
 The texts like:
 

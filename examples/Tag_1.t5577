@@ -1,16 +1,14 @@
 Filetype: Flipper T5577 Raw File
-Version: 1.0
-Modulation: ASK/MC
+Version: 2
+Modulation: FSK2a
 RF Clock: 64
 Number of User Blocks: 8
-
-Raw Data:
-Block 0: 00148100
-Block 1: 1A2B3C4D
-Block 2: 5678ABCD
-Block 3: 12345678
-Block 4: 87654321
-Block 5: 12341234
-Block 6: ABCDEFAB
-Block 7: 78901234
-
+Raw Data: 
+Block 0: 00 14 71 00
+Block 1: 11 12 13 14
+Block 2: 22 33 44 55
+Block 3: 1A 2B 3C 4D
+Block 4: 56 78 AB CD
+Block 5: 12 34 12 34
+Block 6: AB CD EF AB
+Block 7: 12 34 56 78

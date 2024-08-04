@@ -1,0 +1,28 @@
+            - name: Build Flipper Application Package (.fap)
+  # You may pin to the exact commit or the version.
+  # uses: flipperdevices/flipperzero-ufbt-action@e7cd34914e61ddc056acd8daaab96d8b4d4d9f55
+  uses: flipperdevices/flipperzero-ufbt-action@v0.1.4
+  with:
+    # Path to application's source code (if not the root of repository)
+    app-dir: # optional, default is .
+    # Task to run. Valid values: 'build', 'lint', 'setup'
+    task: # optional, default is build
+    # Extra arguments to pass to 'ufbt' for build and lint tasks. Default is '-s' to suppress ufbt output and only show subprocess output
+    ufbt-args: # optional, default is -s
+    # Skip ufbt setup. Useful for multiple invocation of the action
+    skip-setup: # optional, default is ${{ false }}
+    # Release channel to use. Matches argument "--channel" for ufbt update
+    sdk-channel: # optional, default is 
+    # Branch to use for updates. Matches argument "--branch" for ufbt update
+    sdk-branch: # optional, default is 
+    # Index URL to use for updates. Matches argument "--index-url" for ufbt update
+    sdk-index-url: # optional, default is 
+    # Path to SDK archive. Matches argument "--local" for ufbt update
+    sdk-file: # optional, default is 
+    # URL to SDK archive. Matches argument "--url" for ufbt update
+    sdk-url: # optional, default is 
+    # Hardware target to use. Matches argument "--hw-target" for ufbt update
+    sdk-hw-target: # optional, default is 
+    # ufbt version to use. Can be 'latest', 'prerelease' or a specific version from PyPI (e.g. '==0.2.1')
+    ufbt-version: # optional, default is latest
+          

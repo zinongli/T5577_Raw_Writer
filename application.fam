@@ -1,5 +1,5 @@
 App(
-    appid="t5577_raw_writer",
+    appid="t5577_writer",
     name="T5577 Raw Writer",
     apptype=FlipperAppType.EXTERNAL,
     entry_point="main_t5577_writer_app",

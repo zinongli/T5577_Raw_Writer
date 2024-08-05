@@ -3,7 +3,6 @@
 #include <gui/gui.h>
 #include <gui/view.h>
 #include <gui/view_dispatcher.h>
-#include <gui/modules/popup.h>
 #include <gui/modules/submenu.h>
 #include <gui/modules/text_input.h>
 #include <gui/modules/byte_input.h>
@@ -41,7 +40,6 @@ typedef enum {
     T5577WriterViewByteInput,
     T5577WriterViewLoad,
     T5577WriterViewSave,
-    T5577WriterViewPopup,
     T5577WriterViewConfigure_i, // The configuration screen
     T5577WriterViewConfigure_e, // The configuration screen
     T5577WriterViewWrite, // The main screen
@@ -59,7 +57,6 @@ typedef struct {
     Submenu* submenu; // The application menu
 
     TextInput* text_input; // The text input screen
-    Popup* popup;
     VariableItemList* variable_item_list_config; // The configuration screen
     View* view_config_e; // The configuration screen
     View* view_save;
@@ -82,7 +79,6 @@ typedef struct {
     DialogsApp* dialogs;
     FuriString* file_path;
     FuriTimer* timer; // Timer for redrawing the screen
-    ViewNavigationCallback config_enter_callback;
 } T5577WriterApp;
 
 typedef struct {
@@ -107,7 +103,7 @@ void initialize_config(T5577WriterModel* model) {
 
 void initialize_model(T5577WriterModel* model) {
     initialize_config(model);
-    model->user_block_num = 1;
+    model->user_block_num = 0;
     model->edit_block_slc = 1;
     model->writing_repeat_times = 0;
     for(uint32_t i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++) {
@@ -223,21 +219,21 @@ static void t5577_writer_rf_clock_change(VariableItem* item) {
     furi_string_free(buffer);
 }
 
-static const char* user_block_num_config_label = "Num of Blocks";
+static const char* user_block_num_config_label = "Max User Block";
 static void t5577_writer_user_block_num_change(VariableItem* item) {
     T5577WriterApp* app = variable_item_get_context(item);
     T5577WriterModel* model = view_get_model(app->view_write);
     if(model->data_loaded[2]) {
-        variable_item_set_current_value_index(item, model->user_block_num - 1);
+        variable_item_set_current_value_index(item, model->user_block_num);
     } else {
         uint8_t user_block_num_index = variable_item_get_current_value_index(item);
-        model->user_block_num = user_block_num_index + 1;
+        model->user_block_num = user_block_num_index;
     }
     model->data_loaded[2] = false;
     FuriString* buffer = furi_string_alloc();
     furi_string_printf(buffer, "%u", model->user_block_num);
     variable_item_set_current_value_text(item, furi_string_get_cstr(buffer));
-    for(uint8_t i = model->user_block_num; i < LFRFID_T5577_BLOCK_COUNT; i++) {
+    for(uint8_t i = model->user_block_num + 1; i < LFRFID_T5577_BLOCK_COUNT; i++) {
         model->content[i] = 0; // pad the unneeded blocks with zeros
     }
     furi_string_free(buffer);
@@ -297,8 +293,7 @@ static void t5577_writer_file_saver(void* context) {
                format, "Modulation", model->modulation.modulation_name))
             break;
         if(!flipper_format_write_uint32(format, "RF Clock", &clock_buffer, 1)) break;
-        if(!flipper_format_write_uint32(format, "Number of User Blocks", &block_num_buffer, 1))
-            break;
+        if(!flipper_format_write_uint32(format, "Max User Block", &block_num_buffer, 1)) break;
         if(!flipper_format_write_string_cstr(format, "Raw Data", "")) break; // raw data begins
         for(int i = 0; i < LFRFID_T5577_BLOCK_COUNT; i++) {
             furi_string_printf(buffer, "Block %u", i);
@@ -333,7 +328,9 @@ void t5577_writer_update_config_from_load(void* context) {
             my_model->rf_clock = all_rf_clocks[my_model->rf_clock_index];
         }
     }
-    my_model->user_block_num = (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0xF;
+    my_model->user_block_num = ((my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0x7);
+    FURI_LOG_D(TAG, "BLOCK 0 %08lX", my_model->content[0]);
+    FURI_LOG_D(TAG, "bit 25-27 %ld", (my_model->content[0] >> LFRFID_T5577_MAXBLOCK_SHIFT) & 0x7);
     memset(my_model->data_loaded, true, sizeof(my_model->data_loaded)); // Everything is loaded
 }
 
@@ -349,6 +346,7 @@ static void t5577_writer_content_byte_input_confirmed(void* context) {
 static void t5577_writer_content_byte_changed(void* context) {
     UNUSED(context);
 }
+
 static void t5577_writer_config_item_clicked(void* context, uint32_t index) {
     T5577WriterApp* app = (T5577WriterApp*)context;
     T5577WriterModel* my_model = view_get_model(app->view_write);
@@ -422,7 +420,7 @@ static void t5577_writer_config_enter_callback(void* context) {
 
     variable_item_set_current_value_index(app->mod_item, my_model->modulation_index);
     variable_item_set_current_value_index(app->clock_item, my_model->rf_clock_index);
-    variable_item_set_current_value_index(app->block_num_item, my_model->user_block_num - 1);
+    variable_item_set_current_value_index(app->block_num_item, my_model->user_block_num);
     variable_item_set_current_value_index(app->block_slc_item, my_model->edit_block_slc - 1);
 
     t5577_writer_modulation_change(app->mod_item);
@@ -516,7 +514,7 @@ static void t5577_writer_actual_writing(void* model) {
     my_model->content[0] |= my_model->rf_clock.clock_page_zero;
     my_model->content[0] |= (my_model->user_block_num << LFRFID_T5577_MAXBLOCK_SHIFT);
     LFRFIDT5577* data = (LFRFIDT5577*)malloc(sizeof(LFRFIDT5577));
-    data->blocks_to_write = my_model->user_block_num;
+    data->blocks_to_write = my_model->user_block_num + 1;
     for(size_t i = 0; i < data->blocks_to_write; i++) {
         data->block[i] = my_model->content[i];
     }

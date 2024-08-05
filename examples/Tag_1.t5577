@@ -2,7 +2,7 @@ Filetype: Flipper T5577 Raw File
 Version: 2
 Modulation: FSK2a
 RF Clock: 64
-Number of User Blocks: 8
+Max User Block: 7
 Raw Data: 
 Block 0: 00 14 70 E0
 Block 1: 11 12 13 14

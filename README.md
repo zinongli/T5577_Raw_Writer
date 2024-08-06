@@ -18,6 +18,7 @@ in the .t5577 files are derived from the block 0 data when saved. So if you want
 You can also save the data you've just loaded and/or configured. 
 
 ## Future goals
+- [ ] Writing light blink
 - [ ] Write page 1
 - [ ] Write with password
 - [ ] Load and automatically parse PM3 .json dumps

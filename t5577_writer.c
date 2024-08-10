@@ -595,6 +595,7 @@ static void t5577_writer_view_write_exit_callback(void* context) {
     furi_timer_free(app->timer);
     app->timer = NULL;
     model->writing_repeat_times = 0;
+    notification_message(app->notifications, &sequence_blink_stop);
 }
 
 /**
@@ -740,7 +741,7 @@ static T5577WriterApp* t5577_writer_app_alloc() {
  * @param      app  The t5577_writer application object.
 */
 static void t5577_writer_app_free(T5577WriterApp* app) {
-    notification_message(app->notifications, &sequence_blink_stop);
+    
     furi_record_close(RECORD_NOTIFICATION);
 
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewTextInput);

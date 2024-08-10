@@ -10,17 +10,18 @@
 #include <gui/modules/variable_item_list.h>
 #include <notification/notification.h>
 #include <notification/notification_messages.h>
-#include "t5577_writer_icons.h"
+
 #include <applications/services/storage/storage.h>
 #include <applications/services/dialogs/dialogs.h>
+#include <dolphin/dolphin.h>
+#include <flipper_format.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <t5577_config.h>
 #include <t5577_writer.h>
-#include <dolphin/dolphin.h>
-#include <flipper_format.h>
 
+#include "t5577_writer_icons.h"
 #define TAG                        "T5577 Writer"
 #define MAX_REPEAT_WRITING_FRAMES  10
 #define ENDING_WRITING_ICON_FRAMES 5
@@ -556,6 +557,10 @@ static void t5577_writer_view_write_timer_callback(void* context) {
     if(model->writing_repeat_times < MAX_REPEAT_WRITING_FRAMES + ENDING_WRITING_ICON_FRAMES) {
         model->writing_repeat_times += 1;
         view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdRepeatWriting);
+        if (model->writing_repeat_times == MAX_REPEAT_WRITING_FRAMES){
+            notification_message(app->notifications, &sequence_blink_stop);
+            notification_message(app->notifications, &sequence_success);
+        }
     } else {
         view_dispatcher_send_custom_event(app->view_dispatcher, T5577WriterEventIdMaxWriteRep);
     }
@@ -575,6 +580,7 @@ static void t5577_writer_view_write_enter_callback(void* context) {
         furi_timer_alloc(t5577_writer_view_write_timer_callback, FuriTimerTypePeriodic, context);
     furi_timer_start(app->timer, repeat_writing_period);
     dolphin_deed(DolphinDeedRfidEmulate);
+    notification_message(app->notifications, &sequence_blink_start_magenta);
 }
 
 /**
@@ -699,8 +705,8 @@ static T5577WriterApp* t5577_writer_app_alloc() {
     app->byte_input = byte_input_alloc();
     view_dispatcher_add_view(
         app->view_dispatcher, T5577WriterViewByteInput, byte_input_get_view(app->byte_input));
+    
     app->variable_item_list_config = variable_item_list_alloc();
-
     app->view_config_e = view_alloc();
     view_set_previous_callback(app->view_config_e, t5577_writer_navigation_submenu_callback);
     view_set_enter_callback(app->view_config_e, t5577_writer_config_enter_callback);
@@ -734,6 +740,7 @@ static T5577WriterApp* t5577_writer_app_alloc() {
  * @param      app  The t5577_writer application object.
 */
 static void t5577_writer_app_free(T5577WriterApp* app) {
+    notification_message(app->notifications, &sequence_blink_stop);
     furi_record_close(RECORD_NOTIFICATION);
 
     view_dispatcher_remove_view(app->view_dispatcher, T5577WriterViewTextInput);
